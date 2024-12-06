@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathe Lernen!</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a90e2">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+</head>
+<body>
+    <div class="container">
+        <h1>🌟 Mathe Abenteuer! 🌟</h1>
+        <div class="game-area">
+            <div id="problem" class="problem">
+                Bereit zum Lernen? 😊
+            </div>
+            <div id="visual-problem" class="visual-problem">
+                <canvas id="dotsCanvas" width="300" height="200"></canvas>
+            </div>
+            <input type="number" id="answer" class="answer-input" placeholder="Gib deine Antwort hier ein">
+            <button id="submit" class="submit-btn">Überprüfen! ✨</button>
+        </div>
+        <div id="feedback" class="feedback"></div>
+        <div class="score">
+            Richtige Antworten: <span id="score">0</span>
+        </div>
+        <div class="difficulty-level">
+            Schwierigkeitsgrad: <span id="difficulty">Anfänger</span>
+        </div>
+    </div>
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>
