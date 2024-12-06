@@ -1,15 +1,18 @@
 {
-  "name": "math-learning-app",
+  "name": "math-learning",
   "version": "1.0.0",
-  "description": "Adaptive math learning app for children",
+  "description": "Interactive math learning app for children",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.18.2",
-    "openai": "^4.20.1",
-    "dotenv": "^16.3.1",
-    "cors": "^2.8.5"
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
   }
 }

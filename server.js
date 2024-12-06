@@ -1,16 +1,15 @@
 const express = require('express');
-const OpenAI = require('openai');
+const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+const port = process.env.PORT || 3000;
+
+// Serve static files from the public directory
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
 
 // Track student performance
 let studentPerformance = {
@@ -23,46 +22,11 @@ app.post('/generate-problem', async (req, res) => {
     const { difficulty, previousPerformance } = req.body;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-                {
-                    role: "system",
-                    content: "Du bist ein Mathelehrer, der Aufgaben für ein 8-jähriges Kind erstellt. Generiere einfache Plus- oder Minusaufgaben. Gib NUR ein JSON-Objekt mit genau diesem Format zurück: {\"problem\": \"X + Y\", \"answer\": Z}, wobei X und Y Zahlen sind und Z das numerische Ergebnis ist."
-                },
-                {
-                    role: "user",
-                    content: `Generiere eine ${difficulty} Matheaufgabe (Addition oder Subtraktion bis 20).`
-                }
-            ],
-            temperature: 0.7,
-        });
-
-        try {
-            const responseContent = completion.choices[0].message.content;
-            console.log('OpenAI Antwort:', responseContent);
-            const parsedResponse = JSON.parse(responseContent);
-            
-            // Validate the response format
-            if (!parsedResponse.problem || !('answer' in parsedResponse)) {
-                throw new Error('Ungültiges Antwortformat');
-            }
-            
-            // Convert answer to number if it's a string
-            parsedResponse.answer = Number(parsedResponse.answer);
-            
-            res.json(parsedResponse);
-        } catch (parseError) {
-            console.error('Fehler beim Parsen der OpenAI-Antwort:', parseError);
-            // Fallback to local generation
-            const fallbackProblem = generateLocalProblem(difficulty);
-            res.json(fallbackProblem);
-        }
-    } catch (error) {
-        console.error('OpenAI API Fehler:', error);
-        // Fallback to local generation
         const fallbackProblem = generateLocalProblem(difficulty);
         res.json(fallbackProblem);
+    } catch (error) {
+        console.error('Fehler:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -93,7 +57,12 @@ function generateLocalProblem(difficulty) {
     };
 }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+// Serve index.html for the root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Start the server
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 });
