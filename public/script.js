@@ -3,6 +3,7 @@ let score = 0;
 let difficulty = 'anfänger'; // anfänger, fortgeschritten, experte
 let performanceHistory = [];
 let animationInterval = null;
+let problemStartTime;
 
 // DOM elements
 const problemElement = document.getElementById('problem');
@@ -199,14 +200,10 @@ function animateFrame(currentTime) {
     }
 }
 
-function updateVisualProblem(problem) {
-    const parts = problem.split(' ');
-    const num1 = parseInt(parts[0]);
-    const num2 = parseInt(parts[2]);
-    const operator = parts[1];
-    
+function updateVisualProblem(num1, num2) {
     // Clear canvas and draw initial state
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
     drawStaticVisualization(num1, num2);
 
     // Start animation after a longer delay (3 seconds)
@@ -215,11 +212,32 @@ function updateVisualProblem(problem) {
     }, 3000);
 
     // Create speech text in question format
-    let speechText = `Was ist ${num1} ${operator === '+' ? 'plus' : 'minus'} ${num2}?`;
+    let speechText = `Was ist ${num1} plus ${num2}?`;
     speakProblem(speechText);
 }
 
-// Track performance for AI
+async function updateProblem() {
+    try {
+        const problem = await generateProblem();
+        currentProblem = problem;
+        
+        // Update display
+        document.getElementById('problem').textContent = `${problem.num1} ${problem.operator} ${problem.num2} = ?`;
+        
+        // Update visual representation with the numbers directly
+        updateVisualProblem(problem.num1, problem.num2);
+        
+        // Reset timer
+        problemStartTime = Date.now();
+        
+        return problem;
+    } catch (error) {
+        console.error('Error updating problem:', error);
+        document.getElementById('problem').textContent = 'Error loading problem. Please try again.';
+    }
+}
+
+// Track performance for API
 const performanceData = {
     correctAnswers: 0,
     totalAttempts: 0,
@@ -238,220 +256,77 @@ async function generateProblem() {
             body: JSON.stringify({
                 difficulty,
                 previousPerformance: performanceData
-            }),
+            })
         });
 
         if (!response.ok) {
-            throw new Error('Netzwerk-Antwort war nicht ok');
+            throw new Error('Network response was not ok');
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
-        console.error('Fehler:', error);
-        // Fallback to local generation if API fails
-        return generateLocalProblem();
+        console.error('Error generating problem:', error);
+        throw error;
     }
 }
-
-function generateLocalProblem() {
-    let num1, num2;
-    
-    switch(difficulty) {
-        case 'fortgeschritten':
-            num1 = Math.floor(Math.random() * 15) + 5;
-            num2 = Math.floor(Math.random() * 15) + 5;
-            break;
-        case 'experte':
-            num1 = Math.floor(Math.random() * 20) + 1;
-            num2 = Math.floor(Math.random() * 20) + 1;
-            break;
-        default: // anfänger
-            num1 = Math.floor(Math.random() * 10) + 1;
-            num2 = Math.floor(Math.random() * 10) + 1;
-    }
-
-    const operator = Math.random() < 0.5 ? '+' : '-';
-    if (operator === '-' && num1 < num2) {
-        [num1, num2] = [num2, num1];
-    }
-
-    return {
-        problem: `${num1} ${operator} ${num2}`,
-        answer: operator === '+' ? num1 + num2 : num1 - num2
-    };
-}
-
-function updateDifficulty() {
-    const recentPerformance = performanceData.recentResults.slice(-5);
-    const successRate = recentPerformance.filter(x => x).length / recentPerformance.length;
-
-    if (successRate > 0.8 && performanceData.correctAnswers >= 10) {
-        difficulty = 'fortgeschritten';
-        difficultyElement.textContent = 'Fortgeschritten';
-    }
-    if (successRate > 0.8 && performanceData.correctAnswers >= 20) {
-        difficulty = 'experte';
-        difficultyElement.textContent = 'Experte';
-    }
-    if (successRate < 0.3 && difficulty !== 'anfänger') {
-        difficulty = difficulty === 'experte' ? 'fortgeschritten' : 'anfänger';
-        difficultyElement.textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-    }
-}
-
-// Intelligent Math System
-class MathAI {
-    constructor() {
-        this.difficulty = 1;  // Scale of 1-5
-        this.consecutiveCorrect = 0;
-        this.consecutiveWrong = 0;
-        this.lastProblemType = null;
-        this.problemHistory = [];
-        this.learningPatterns = new Map();
-    }
-
-    generateProblem() {
-        // Adjust numbers based on current difficulty
-        const maxNum = Math.min(10 + (this.difficulty * 5), 30);
-        const minNum = Math.max(1, Math.floor(maxNum / 4));
-
-        // Generate numbers with weighted randomization
-        let num1 = this.weightedRandom(minNum, maxNum);
-        let num2 = this.weightedRandom(minNum, Math.min(maxNum, 10 - (num1 % 10)));
-
-        // Ensure second number doesn't cause top row to exceed 10
-        if (num1 + num2 > 10) {
-            num2 = Math.min(num2, 10 - (num1 % 10));
-        }
-
-        return {
-            num1: num1,
-            num2: num2,
-            operator: '+',
-            solution: num1 + num2
-        };
-    }
-
-    weightedRandom(min, max) {
-        // Use normal distribution for more natural number selection
-        const mean = (min + max) / 2;
-        const stdDev = (max - min) / 4;
-        let num;
-        do {
-            num = Math.round(this.normalDistribution(mean, stdDev));
-        } while (num < min || num > max);
-        return num;
-    }
-
-    normalDistribution(mean, stdDev) {
-        // Box-Muller transform for normal distribution
-        const u1 = Math.random();
-        const u2 = Math.random();
-        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-        return mean + (z0 * stdDev);
-    }
-
-    provideFeedback(problem, userAnswer, timeToAnswer) {
-        const correct = userAnswer === problem.solution;
-        
-        // Update learning patterns
-        this.updateLearningPatterns(problem, correct, timeToAnswer);
-        
-        // Adjust difficulty
-        this.adjustDifficulty(correct, timeToAnswer);
-
-        // Generate personalized feedback
-        return this.generatePersonalizedFeedback(problem, userAnswer, correct);
-    }
-
-    updateLearningPatterns(problem, correct, timeToAnswer) {
-        const key = `${problem.num1}${problem.operator}${problem.num2}`;
-        const pattern = this.learningPatterns.get(key) || {
-            attempts: 0,
-            correct: 0,
-            avgTime: 0
-        };
-
-        pattern.attempts++;
-        if (correct) pattern.correct++;
-        pattern.avgTime = ((pattern.avgTime * (pattern.attempts - 1)) + timeToAnswer) / pattern.attempts;
-        this.learningPatterns.set(key, pattern);
-    }
-
-    adjustDifficulty(correct, timeToAnswer) {
-        if (correct) {
-            this.consecutiveCorrect++;
-            this.consecutiveWrong = 0;
-            if (this.consecutiveCorrect >= 3 && timeToAnswer < 5000) {
-                this.difficulty = Math.min(5, this.difficulty + 0.5);
-            }
-        } else {
-            this.consecutiveWrong++;
-            this.consecutiveCorrect = 0;
-            if (this.consecutiveWrong >= 2) {
-                this.difficulty = Math.max(1, this.difficulty - 0.5);
-            }
-        }
-    }
-
-    generatePersonalizedFeedback(problem, userAnswer, correct) {
-        if (correct) {
-            const responses = [
-                "Super gemacht! ",
-                "Fantastisch! Weiter so! ",
-                "Das ist richtig! Du bist ein Mathe-Star! ",
-                "Perfekt! Du hast es drauf! "
-            ];
-            return responses[Math.floor(Math.random() * responses.length)];
-        } else {
-            // Analyze the error pattern
-            const difference = Math.abs(problem.solution - userAnswer);
-            if (difference === 1) {
-                return "Fast richtig! Zähl noch einmal genau nach. ";
-            } else if (userAnswer > problem.solution) {
-                return "Ein bisschen zu viel. Schau dir die Punkte genau an. ";
-            } else {
-                return "Etwas zu wenig. Zähl die Punkte noch einmal. ";
-            }
-        }
-    }
-}
-
-// Initialize AI system
-const mathAI = new MathAI();
-let problemStartTime;
 
 function checkAnswer() {
     const userAnswer = parseInt(document.getElementById('answer').value);
     const timeToAnswer = Date.now() - problemStartTime;
     
     if (isNaN(userAnswer)) {
-        document.getElementById('feedback').textContent = 'Bitte gib eine Zahl ein! 🤔';
+        document.getElementById('feedback').textContent = 'Bitte gib eine Zahl ein! ';
         return;
     }
 
     const correctAnswer = currentProblem.num1 + currentProblem.num2;
     const isCorrect = userAnswer === correctAnswer;
     
-    const feedback = mathAI.provideFeedback(currentProblem, userAnswer, timeToAnswer);
-    document.getElementById('feedback').textContent = feedback;
+    // Update performance data
+    performanceData.totalAttempts++;
+    if (isCorrect) {
+        performanceData.correctAnswers++;
+        performanceData.recentResults.push(true);
+    } else {
+        performanceData.recentResults.push(false);
+    }
     
-    // Clear input and update score
+    // Keep only last 5 results
+    if (performanceData.recentResults.length > 5) {
+        performanceData.recentResults.shift();
+    }
+    
+    // Calculate average response time
+    if (!performanceData.averageResponseTime) {
+        performanceData.averageResponseTime = timeToAnswer;
+    } else {
+        performanceData.averageResponseTime = 
+            (performanceData.averageResponseTime + timeToAnswer) / 2;
+    }
+    
+    // Set feedback message
+    let feedback;
+    if (isCorrect) {
+        feedback = 'Super gemacht! ';
+    } else {
+        feedback = `Versuch es noch einmal! Die richtige Antwort wäre ${correctAnswer} gewesen. `;
+    }
+    
+    document.getElementById('feedback').textContent = feedback;
     document.getElementById('answer').value = '';
     
     if (isCorrect) {
-        // Update score for correct answer
+        // Update score
         const scoreElement = document.getElementById('score');
         const currentScore = parseInt(scoreElement.textContent) || 0;
         scoreElement.textContent = currentScore + 1;
         
-        // Speak feedback for correct answer
+        // Speak feedback
         speakProblem(feedback);
         
         // Generate new problem after delay
-        setTimeout(() => {
-            currentProblem = updateProblem();
+        setTimeout(async () => {
+            await updateProblem();
             document.getElementById('feedback').textContent = '';
         }, 2000);
     } else {
@@ -461,27 +336,6 @@ function checkAnswer() {
     }
 }
 
-function updateProblem() {
-    const problem = mathAI.generateProblem();
-    currentProblem = problem;  // Store the full problem object
-    
-    // Update display
-    document.getElementById('problem').textContent = `${problem.num1} ${problem.operator} ${problem.num2} = ?`;
-    
-    // Update visual representation
-    updateVisualProblem(`${problem.num1}+${problem.num2}`);
-    
-    // Reset timer
-    problemStartTime = Date.now();
-    
-    return problem;
-}
-
-// Start the game
-document.addEventListener('DOMContentLoaded', () => {
-    currentProblem = updateProblem();
-});
-
 // Event listeners
 document.getElementById('submit').addEventListener('click', checkAnswer);
 document.getElementById('answer').addEventListener('keypress', (e) => {
@@ -490,38 +344,33 @@ document.getElementById('answer').addEventListener('keypress', (e) => {
     }
 });
 
-// Speech synthesis setup
-const speechSynthesis = window.speechSynthesis;
-let germanVoice = null;
-
 // Initialize German voice
 function initializeVoice() {
-    return new Promise((resolve) => {
-        // Wait for voices to be loaded
-        speechSynthesis.onvoiceschanged = () => {
-            const voices = speechSynthesis.getVoices();
-            germanVoice = voices.find(voice => voice.lang.includes('de')) || voices[0];
-            resolve();
-        };
-        // Trigger voice loading
-        speechSynthesis.getVoices();
+    window.speechSynthesis.getVoices().forEach(voice => {
+        if (voice.lang.includes('de')) {
+            window.germanVoice = voice;
+        }
     });
 }
 
 // Initialize voice when page loads
 document.addEventListener('DOMContentLoaded', initializeVoice);
+window.speechSynthesis.onvoiceschanged = initializeVoice;
 
 function speakProblem(problem) {
-    // Cancel any ongoing speech
-    speechSynthesis.cancel();
-
-    // Create utterance with German voice
+    if (!window.germanVoice) return;
+    
     const utterance = new SpeechSynthesisUtterance(problem);
-    utterance.voice = germanVoice;
+    utterance.voice = window.germanVoice;
     utterance.lang = 'de-DE';
-    utterance.rate = 0.9; // Slightly slower for better comprehension
-    utterance.pitch = 1.0;
-
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    
     // Speak the problem
     speechSynthesis.speak(utterance);
 }
+
+// Start the game
+document.addEventListener('DOMContentLoaded', async () => {
+    await updateProblem();
+});

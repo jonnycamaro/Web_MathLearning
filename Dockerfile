@@ -10,8 +10,19 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --only=production
 
-# Copy app source
-COPY . .
+# Copy public directory (without sw.js)
+COPY public/ ./public/
+
+# Copy server files and PWA files
+COPY server.js .
+COPY manifest.json .
+COPY sw.js .
+
+# Create necessary directories and set permissions
+RUN chown -R node:node /usr/src/app
+
+# Switch to non-root user
+USER node
 
 # Expose port
 EXPOSE 3000

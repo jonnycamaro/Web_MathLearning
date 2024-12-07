@@ -15,15 +15,15 @@ app.use(express.static('public'));
 let studentPerformance = {
     correctAnswers: 0,
     totalAttempts: 0,
-    difficulty: 'beginner'
+    difficulty: 'anfänger'
 };
 
 app.post('/generate-problem', async (req, res) => {
     const { difficulty, previousPerformance } = req.body;
 
     try {
-        const fallbackProblem = generateLocalProblem(difficulty);
-        res.json(fallbackProblem);
+        const problem = generateLocalProblem(difficulty || 'anfänger');
+        res.json(problem);
     } catch (error) {
         console.error('Fehler:', error);
         res.status(500).json({ message: 'Internal Server Error' });
@@ -33,32 +33,32 @@ app.post('/generate-problem', async (req, res) => {
 function generateLocalProblem(difficulty) {
     let num1, num2;
     switch(difficulty) {
-        case 'intermediate':
+        case 'fortgeschritten':
             num1 = Math.floor(Math.random() * 15) + 5;
             num2 = Math.floor(Math.random() * 15) + 5;
             break;
-        case 'advanced':
+        case 'experte':
             num1 = Math.floor(Math.random() * 20) + 1;
             num2 = Math.floor(Math.random() * 20) + 1;
             break;
-        default: // beginner
+        default: // anfänger
             num1 = Math.floor(Math.random() * 10) + 1;
             num2 = Math.floor(Math.random() * 10) + 1;
     }
 
-    const operator = Math.random() < 0.5 ? '+' : '-';
-    if (operator === '-' && num1 < num2) {
-        [num1, num2] = [num2, num1];
-    }
+    // For now, we'll stick with addition only since that's what the visualization supports
+    const operator = '+';
 
     return {
-        problem: `${num1} ${operator} ${num2}`,
-        answer: operator === '+' ? num1 + num2 : num1 - num2
+        num1: num1,
+        num2: num2,
+        operator: operator
     };
 }
 
 // Serve index.html for the root route
 app.get('/', (req, res) => {
+    console.log('Serving index.html');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
