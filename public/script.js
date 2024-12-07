@@ -230,7 +230,7 @@ const performanceData = {
 
 async function generateProblem() {
     try {
-        const response = await fetch('http://localhost:3000/generate-problem', {
+        const response = await fetch('/generate-problem', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
