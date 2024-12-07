@@ -68,8 +68,8 @@ jobs:
           # Stop and remove the old container if it exists
           #docker stop math_learning_app || true
           #docker rm math_learning_app || true
-          docker stop web_mathlearning || true
-          docker rm web_mathlearning || true
+          docker stop math_learning_app || true
+          docker rm math_learning_app || true
 
           # Run the new container
           docker run -d \
